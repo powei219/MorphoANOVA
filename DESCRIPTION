@@ -1,0 +1,32 @@
+Package: MorphoANOVA
+Type: Package
+Title: Histology and Gene Expression Decomposition in Spatial
+        Transcriptomics
+Version: 0.1.8
+Depends: R (>= 4.1.0)
+Authors@R: person("Po-Wei", "Chen", email = "ack7qw@virginia.edu", role = c("aut", "cre"))
+Description: Implements a sequential analysis of variance (ANOVA) framework using
+    nested spatially varying coefficient models to examine relationships
+    between spatial gene expression and H&E-derived morphology. Sequential
+    F-tests assess slide-wide H&E effects, location-specific H&E effects,
+    and additional spatial variation unexplained by the selected H&E feature,
+    while increments in adjusted R-squared summarize the variance explained by
+    each component. Provides fitted spatial components, pointwise inference,
+    plots for single-gene and multi-gene analyses, component-specific gene
+    rankings, tissue-composition correlation heatmaps, and GO and KEGG enrichment
+    for biological interpretation.
+License: GPL (>= 3)
+Encoding: UTF-8
+URL: https://github.com/powei219/MorphoANOVA
+BugReports: https://github.com/powei219/MorphoANOVA/issues
+Imports: digest, grDevices, grid, methods, mgcv, parallel, stats,
+        tools, utils
+Suggests: AnnotationDbi, BiocManager, clusterProfiler, ggplot2,
+        ggrepel, jpeg, knitr, Matrix, org.Hs.eg.db, patchwork,
+        png, rmarkdown, testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+NeedsCompilation: no
+Author: Po-Wei Chen [aut, cre]
+Maintainer: Po-Wei Chen <ack7qw@virginia.edu>

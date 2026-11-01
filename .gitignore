@@ -1,0 +1,9 @@
+.DS_Store
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+*.Rproj
+MorphoANOVA_*.tar.gz
+MorphoANOVA.Rcheck/
+Rplots.pdf

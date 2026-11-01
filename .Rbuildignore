@@ -1,0 +1,9 @@
+^\.git$
+^\.gitignore$
+^\.Rproj\.user$
+^.*\.Rproj$
+^LICENSE\.md$
+^tutorial$
+^MorphoANOVA_.*\.tar\.gz$
+^MorphoANOVA\.Rcheck$
+(^|/)Rplots\.pdf$
