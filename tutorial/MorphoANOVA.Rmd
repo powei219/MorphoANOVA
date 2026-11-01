@@ -54,6 +54,9 @@ rownames(expression)
 
 Next, we extract an H&E feature from the aligned image, tissue_hires_image.png. For each tissue spot, we calculate the mean red-channel intensity within a 15 × 11 pixel patch centered at the spot, as in our ovarian analysis.
 
+The function mean-centers the patch means across all supplied locations;
+`he$preview` displays the same values stored in `he$spots$he`.
+
 To locate each spot in the image, the coordinate table must contain spot_id, x, and y. The function uses one-based pixel coordinates, where x refers to the image column and y refers to the image row. In this dataset, the coordinates are already in pixels, but the y-axis points upward rather than downward. We therefore set flip_y = TRUE to match the image orientation.
 
 For other datasets, if x and y are in different units (e.g., micrometers), first convert them to image-pixel coordinates using the appropriate scaling factors or image registration information. Store these in separate columns (pixel_x and pixel_y) and specify pixel_columns = c("pixel_x", "pixel_y").
@@ -76,6 +79,13 @@ k = 30 is a tuning parameter that sets the basis dimension for each spatial smoo
 
 ```{r single-fit}
 fit_one <- fit_morphoanova(expression, spots, genes = "IGHM", k = 30)
+```
+
+Fitting uses `center = TRUE` by default; use `center = FALSE` to keep a supplied
+H&E feature unchanged:
+
+```{r keep-he, eval=FALSE}
+fit_morphoanova(expression, spots, genes = "IGHM", k = 30, center = FALSE)
 ```
 
 ### Interpreting histology–gene expression relationships

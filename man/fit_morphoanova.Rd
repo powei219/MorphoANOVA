@@ -12,7 +12,8 @@ fit_morphoanova(
   k = 30,
   cores = 1,
   output_dir = NULL,
-  resume = FALSE
+  resume = FALSE,
+  center = TRUE
 )
 }
 \arguments{
@@ -41,6 +42,10 @@ named per-gene file paths; plotting functions read only the requested genes.}
 
 \item{resume}{Resume a matching run in \code{output_dir}. Changed inputs,
 source code, model settings, or software versions require a new directory.}
+
+\item{center}{Mean-center the selected H&E feature across the locations in
+this fit. The default is \code{TRUE}; \code{FALSE} uses the supplied values
+unchanged, including features already centered by \code{extract_he_feature()}.}
 }
 \value{
 A \code{morphoanova_fit} list containing four entries:
@@ -50,7 +55,9 @@ location-level results for that gene. Use \code{head()} to preview it.
 In disk mode, \code{spatial[[gene]]} is the saved file path. Read its
 location-level table with \code{readRDS(fit$spatial[[gene]])$spatial}.
 \code{settings} records the main model settings, centering,
-package version, and numbers of genes and locations. File paths, model
+package version, and numbers of genes and locations. Its \code{center}
+entry records the centering option; \code{feature_center} is the subtracted
+mean, or zero when \code{center = FALSE}. File paths, model
 diagnostics, and full provenance are retained in an internal attribute.
 \code{F21}, \code{F32}, and \code{F43} compare M2 versus M1, M3 versus M2,
 and M4 versus M3, respectively. \code{p21}, \code{p32}, and \code{p43}
@@ -73,7 +80,8 @@ spatial entry in memory mode, and an explanatory status.
 Fits four nested Gaussian spatial models with REML and summarizes sequential
 F tests, adjusted R-squared increments, and spatial component maps. Expression
 is used as supplied; normalize and log-transform it before calling this
-function. The selected H&E feature is mean-centered across locations.
+function. By default, the selected H&E feature is mean-centered across
+locations. Set \code{center = FALSE} to use the supplied feature unchanged.
 }
 \details{
 Sequential F statistics and p-values are taken from pairwise

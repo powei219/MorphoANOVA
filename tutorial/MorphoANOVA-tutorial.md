@@ -56,6 +56,9 @@ tissue_hires_image.png. For each tissue spot, we calculate the mean
 red-channel intensity within a 15 × 11 pixel patch centered at the spot,
 as in our ovarian analysis.
 
+The function mean-centers the patch means across all supplied locations;
+`he$preview` displays the same values stored in `he$spots$he`.
+
 To locate each spot in the image, the coordinate table must contain
 spot_id, x, and y. The function uses one-based pixel coordinates, where
 x refers to the image column and y refers to the image row. In this
@@ -75,13 +78,13 @@ he <- extract_he_feature("tissue_hires_image.png", coordinates,
                          pixel_columns = c("x", "y"), flip_y = TRUE)
 spots <- he$spots
 head(he$spots)
-#>              spot_id        x        y        he
-#> 1 CCAAAGTCCCGCTAAC-1 315.3623 752.6087 0.8969574
-#> 2 GTTACGGCCCGACTGC-1 315.3623 773.4783 0.6566961
-#> 3 TAGTGAGAAGTGGTTG-1 315.5072 794.4928 0.5949207
-#> 4 AAACAATCTACTAGCA-1 315.5072 815.3623 0.5769838
-#> 5 GCGCGATGGGTCAAGT-1 297.2464 825.7971 0.7671998
-#> 6 ATAAACCATTGGACGG-1 315.5072 836.2319 0.5583580
+#>              spot_id        x        y           he
+#> 1 CCAAAGTCCCGCTAAC-1 315.3623 752.6087  0.305926825
+#> 2 GTTACGGCCCGACTGC-1 315.3623 773.4783  0.065665572
+#> 3 TAGTGAGAAGTGGTTG-1 315.5072 794.4928  0.003890115
+#> 4 AAACAATCTACTAGCA-1 315.5072 815.3623 -0.014046726
+#> 5 GCGCGATGGGTCAAGT-1 297.2464 825.7971  0.176169189
+#> 6 ATAAACCATTGGACGG-1 315.5072 836.2319 -0.032672536
 he$preview
 ```
 
@@ -98,6 +101,13 @@ increase computation.
 
 ``` r
 fit_one <- fit_morphoanova(expression, spots, genes = "IGHM", k = 30)
+```
+
+Fitting uses `center = TRUE` by default; use `center = FALSE` to keep a supplied
+H&E feature unchanged:
+
+``` r
+fit_morphoanova(expression, spots, genes = "IGHM", k = 30, center = FALSE)
 ```
 
 ### Interpreting histology–gene expression relationships

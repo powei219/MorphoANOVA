@@ -25,7 +25,8 @@ test_that("JPEG patch means preserve channels, orientation, and edge pixels", {
       expect_warning(he <- extract_he_feature(file, spots, channel = channel,
         patch_size = c(4, 2), pixel_columns = c("pixel_x", "pixel_y"),
         flip_y = flip), "edge patches")
-      expect_equal(he$spots$he, expected, tolerance = 1e-12)
+      expect_equal(he$spots$he, expected - mean(expected), tolerance = 1e-12)
+      expect_equal(he$settings$feature_center, mean(expected), tolerance = 1e-12)
     }
   }
   expect_equal(he$spots[names(spots)], spots)
@@ -46,7 +47,9 @@ test_that("large-image previews are bounded without changing feature resolution"
   spots <- data.frame(spot_id = c("a", "b", "c", "d"),
     x = c(1, 2, 1031, 2107), y = c(1, 2, 17, 31))
   he <- extract_he_feature(file, spots, channel = "red", patch_size = 1)
-  expect_equal(he$spots$he, decoded[cbind(spots$y, spots$x, 1)], tolerance = 1e-12)
+  expected <- decoded[cbind(spots$y, spots$x, 1)]
+  expect_equal(he$spots$he, expected - mean(expected), tolerance = 1e-12)
+  expect_equal(he$settings$feature_center, mean(expected), tolerance = 1e-12)
   histology <- he$preview[[1]]
   feature_map <- he$preview[[2]]
   raster <- histology$layers[[1]]$geom_params$raster
@@ -54,6 +57,7 @@ test_that("large-image previews are bounded without changing feature resolution"
   expect_equal(nrow(feature_map$data), nrow(spots))
   expect_equal(feature_map$data$pixel_x, spots$x)
   expect_equal(feature_map$data$pixel_y, 32 - spots$y)
+  expect_identical(feature_map$data$value, he$spots$he)
   image_frame <- ggplot2::ggplot_build(histology)$layout$panel_params[[1]]
   feature_frame <- ggplot2::ggplot_build(feature_map)$layout$panel_params[[1]]
   expect_equal(image_frame$x.range, c(0.5, 2107.5))
@@ -83,7 +87,9 @@ test_that("PNG extraction retains 16-bit channel precision", {
   for (channel in c("red", "green", "blue", "rgb")) {
     selected <- if (channel == "rgb") 1:3 else match(channel, c("red", "green", "blue"))
     he <- extract_he_feature(file, spots, channel = channel, patch_size = 1)
-    expect_equal(he$spots$he, rowMeans(pixels[, selected, drop = FALSE]), tolerance = 1e-12)
+    expected <- rowMeans(pixels[, selected, drop = FALSE])
+    expect_equal(he$spots$he, expected - mean(expected), tolerance = 1e-12)
+    expect_equal(he$settings$feature_center, mean(expected), tolerance = 1e-12)
   }
 })
 
@@ -94,9 +100,11 @@ test_that("array extraction retains non-8-bit values and ignores alpha", {
   expected <- c(mean(image[1:3, 2:4, 1:3]), mean(image[5:7, 7:9, 1:3]))
   for (scale in c(1, 255)) {
     he <- extract_he_feature(image * scale, spots, channel = "rgb", patch_size = 3)
-    expect_equal(he$spots$he, expected, tolerance = 1e-12)
+    expect_equal(he$spots$he, expected - mean(expected), tolerance = 1e-12)
+    expect_equal(he$settings$feature_center, mean(expected), tolerance = 1e-12)
   }
   image[, , 4] <- 1
   he <- extract_he_feature(image, spots, channel = "rgb", patch_size = 3)
-  expect_equal(he$spots$he, expected, tolerance = 1e-12)
+  expect_equal(he$spots$he, expected - mean(expected), tolerance = 1e-12)
+  expect_equal(he$settings$feature_center, mean(expected), tolerance = 1e-12)
 })

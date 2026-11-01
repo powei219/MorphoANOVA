@@ -18,7 +18,10 @@
   spots
 }
 
-.prepare_fit_input <- function(expression, spots, genes, feature, k, cores) {
+.prepare_fit_input <- function(expression, spots, genes, feature, k, cores, center = TRUE) {
+  if (!is.logical(center) || length(center) != 1L || is.na(center)) {
+    stop("`center` must be TRUE or FALSE.", call. = FALSE)
+  }
   if (!(is.matrix(expression) || inherits(expression, "Matrix"))) {
     stop("`expression` must be a genes-by-locations matrix.", call. = FALSE)
   }
@@ -67,9 +70,9 @@
     stop("Too few locations for `k`; use a smaller basis dimension.", call. = FALSE)
   }
   h <- as.numeric(spots[[feature]])
-  center <- mean(h)
-  h <- h - center
-  if (!any(h != 0)) stop("The selected H&E feature has no variation.", call. = FALSE)
+  if (!any(h != h[1L])) stop("The selected H&E feature has no variation.", call. = FALSE)
+  feature_center <- if (center) mean(h) else 0
+  if (center) h <- h - feature_center
   list(expression = expression[genes, , drop = FALSE], spots = spots,
-       genes = genes, h = h, center = center)
+       genes = genes, h = h, center = feature_center)
 }

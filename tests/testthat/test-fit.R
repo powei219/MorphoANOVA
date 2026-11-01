@@ -25,6 +25,8 @@ test_that("spatial tables are directly accessible and IDs align explicitly", {
     "spatial_beyond_he_se", "spatial_beyond_he_p", "spatial_beyond_he_q"))
   expect_equal(fit$settings$n_genes, nrow(d$expression))
   expect_equal(fit$settings$n_locations, nrow(d$spots))
+  expect_true(fit$settings$center)
+  expect_equal(fit$settings$feature_center, mean(d$spots$he))
   expect_false(any(c("source_hash", "run_fingerprint", "genes") %in% names(fit$settings)))
   expect_true(nzchar(attr(fit, "internal", exact = TRUE)$provenance$run_fingerprint))
   reordered <- fit_morphoanova(d$expression, d$spots[rev(seq_len(nrow(d$spots))), ], k = 8)
@@ -39,6 +41,46 @@ test_that("spatial tables are directly accessible and IDs align explicitly", {
   constant <- d$spots
   constant$he <- 5
   expect_error(fit_morphoanova(d$expression, constant, k = 8), "no variation")
+  expect_error(fit_morphoanova(d$expression, constant, k = 8, center = FALSE), "no variation")
+  for (invalid in list(NA, NULL, 1, "TRUE", c(TRUE, FALSE))) {
+    expect_error(fit_morphoanova(d$expression, d$spots, k = 8, center = invalid), "center")
+  }
+})
+
+test_that("automatic centering matches a manually centered feature", {
+  d <- core_example()
+  automatic <- fit_morphoanova(d$expression, d$spots, k = 8)
+  centered <- d$spots
+  centered$he <- centered$he - mean(centered$he)
+  manual <- fit_morphoanova(d$expression, centered, k = 8, center = FALSE)
+  expect_equal(manual$statistics, automatic$statistics, tolerance = 1e-10)
+  expect_equal(manual$spatial, automatic$spatial, tolerance = 1e-10)
+  expect_false(manual$settings$center)
+  expect_equal(manual$settings$feature_center, 0)
+})
+
+test_that("an uncentered feature is fitted as supplied", {
+  d <- core_example()
+  d$spots$he <- d$spots$he + 3
+  fit <- fit_morphoanova(d$expression, d$spots, genes = "geneA", k = 8, center = FALSE)
+  input <- data.frame(y = as.numeric(d$expression["geneA", ]),
+                       x = d$spots$x, z = d$spots$y, h = d$spots$he)
+  m1 <- mgcv::gam(y ~ 1, data = input, family = gaussian(), method = "REML")
+  m2 <- mgcv::gam(y ~ h, data = input, family = gaussian(), method = "REML")
+  m3 <- mgcv::gam(y ~ s(x, z, by = h, k = 8), data = input, family = gaussian(), method = "REML")
+  m4 <- mgcv::gam(y ~ s(x, z, by = h, k = 8) + s(x, z, k = 8),
+                  data = input, family = gaussian(), method = "REML")
+  models <- list(m1, m2, m3, m4)
+  comparisons <- lapply(seq_len(3), function(i) mgcv::anova.gam(models[[i]], models[[i + 1]], test = "F"))
+  expect_equal(unname(unlist(fit$statistics[c("F21", "F32", "F43")])),
+    vapply(comparisons, function(a) a[["F"]][2], numeric(1)), tolerance = 1e-8)
+  expect_equal(unname(unlist(fit$statistics[c("p21", "p32", "p43")])),
+    vapply(comparisons, function(a) a[["Pr(>F)"]][2], numeric(1)), tolerance = 1e-8)
+  expect_equal(fit$spatial$geneA$he, d$spots$he)
+  expect_gt(abs(mean(fit$spatial$geneA$he)), 2)
+  expect_equal(fit$spatial$geneA$fitted, as.numeric(fitted(m4)), tolerance = 1e-9)
+  expect_false(fit$settings$center)
+  expect_equal(fit$settings$feature_center, 0)
 })
 
 test_that("F tests agree with GAM ANOVA while R2 retains fitted EDF", {
@@ -267,13 +309,18 @@ test_that("disk results, compatible resume, and stale-input rejection work", {
   expect_error(.gene_spatial(disk, "geneA"), "stored gene failure")
 })
 
-test_that("changing the F-test implementation invalidates existing checkpoints", {
+test_that("changing centering or the F test invalidates existing checkpoints", {
   d <- core_example()
+  d$spots$he <- d$spots$he - mean(d$spots$he)
   directory <- tempfile("morphoanova-test-definition-")
   on.exit(unlink(directory, recursive = TRUE), add = TRUE)
   saved <- fit_morphoanova(d$expression, d$spots, genes = "geneA", k = 8, output_dir = directory)
   files <- c(file.path(directory, "run.rds"), attr(saved, "internal", exact = TRUE)$files)
   before <- unname(tools::md5sum(files))
+  expect_equal(saved$settings$feature_center, 0, tolerance = 1e-14)
+  expect_error(fit_morphoanova(d$expression, d$spots, genes = "geneA", k = 8,
+    output_dir = directory, resume = TRUE, center = FALSE), "Cannot resume")
+  expect_identical(unname(tools::md5sum(files)), before)
   local_mocked_bindings(.sequential_test = function(reduced, full) {
     stop("Changed test implementation must not execute when resuming an old run")
   })
@@ -282,34 +329,36 @@ test_that("changing the F-test implementation invalidates existing checkpoints",
   expect_identical(unname(tools::md5sum(files)), before)
 })
 
-test_that("parallel and sparse inputs produce the same numerical results", {
+test_that("uncentered memory, disk, parallel and sparse results agree", {
   skip_on_cran()
   d <- core_example()
-  serial <- fit_morphoanova(d$expression, d$spots, k = 8)
-  parallel <- fit_morphoanova(d$expression, d$spots, k = 8, cores = 2)
+  d$spots$he <- d$spots$he + 3
+  serial <- fit_morphoanova(d$expression, d$spots, k = 8, center = FALSE)
+  parallel <- fit_morphoanova(d$expression, d$spots, k = 8, cores = 2, center = FALSE)
   expect_equal(serial$statistics, parallel$statistics, tolerance = 1e-10)
   expect_equal(.gene_spatial(serial, "geneB"), .gene_spatial(parallel, "geneB"), tolerance = 1e-10)
   skip_if_not_installed("Matrix")
-  sparse <- fit_morphoanova(Matrix::Matrix(d$expression, sparse = TRUE), d$spots, k = 8)
+  sparse <- fit_morphoanova(Matrix::Matrix(d$expression, sparse = TRUE), d$spots, k = 8, center = FALSE)
   expect_equal(serial$statistics, sparse$statistics, tolerance = 1e-10)
-  dense <- fit_morphoanova(Matrix::Matrix(d$expression, sparse = FALSE), d$spots, k = 8)
+  dense <- fit_morphoanova(Matrix::Matrix(d$expression, sparse = FALSE), d$spots, k = 8, center = FALSE)
   expect_equal(serial$statistics, dense$statistics, tolerance = 1e-10)
   sparse_expression <- Matrix::Matrix(d$expression, sparse = TRUE)
-  sparse_parallel <- fit_morphoanova(sparse_expression, d$spots, k = 8, cores = 2)
+  sparse_parallel <- fit_morphoanova(sparse_expression, d$spots, k = 8, cores = 2, center = FALSE)
   expect_true(all(sparse_parallel$status$status == "complete"))
   expect_equal(serial$statistics, sparse_parallel$statistics, tolerance = 1e-10)
   expect_equal(.gene_spatial(serial, "geneA"), .gene_spatial(sparse_parallel, "geneA"), tolerance = 1e-10)
-  dense_parallel <- fit_morphoanova(Matrix::Matrix(d$expression, sparse = FALSE), d$spots, k = 8, cores = 2)
+  dense_parallel <- fit_morphoanova(Matrix::Matrix(d$expression, sparse = FALSE), d$spots, k = 8, cores = 2, center = FALSE)
   expect_true(all(dense_parallel$status$status == "complete"))
   expect_equal(serial$statistics, dense_parallel$statistics, tolerance = 1e-10)
   directory <- tempfile("sparse-parallel-")
-  disk <- fit_morphoanova(sparse_expression, d$spots, k = 8, cores = 2, output_dir = directory)
+  on.exit(unlink(directory, recursive = TRUE), add = TRUE)
+  disk <- fit_morphoanova(sparse_expression, d$spots, k = 8, cores = 2, output_dir = directory, center = FALSE)
   expect_true(all(disk$status$status == "complete"))
   expect_equal(serial$statistics, disk$statistics, tolerance = 1e-10)
   expect_equal(.gene_spatial(serial, "geneB"), .gene_spatial(disk, "geneB"), tolerance = 1e-10)
   before <- unname(tools::md5sum(attr(disk, "internal", exact = TRUE)$files))
   resumed <- fit_morphoanova(sparse_expression, d$spots, k = 8, cores = 2,
-    output_dir = directory, resume = TRUE)
+    output_dir = directory, resume = TRUE, center = FALSE)
   expect_identical(unname(tools::md5sum(attr(resumed, "internal", exact = TRUE)$files)), before)
   expect_equal(serial$statistics, resumed$statistics, tolerance = 1e-10)
 })

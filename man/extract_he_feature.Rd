@@ -15,7 +15,8 @@ extract_he_feature(
 }
 \arguments{
 \item{image}{PNG/JPEG filename or numeric height-by-width-by-channel RGB array.
-Intensities may be in \verb{[0, 1]} or \verb{[0, 255]}; features use the \verb{[0, 1]} scale.}
+Intensities may be in \verb{[0, 1]} or \verb{[0, 255]}; patch means use the \verb{[0, 1]}
+scale before centering.}
 
 \item{spots}{Data frame containing unique \code{spot_id}, model coordinates \code{x},
 \code{y}, and the image coordinate columns selected by \code{pixel_columns}.}
@@ -29,11 +30,13 @@ Intensities may be in \verb{[0, 1]} or \verb{[0, 255]}; features use the \verb{[
 \item{flip_y}{Reflect rounded image y coordinates using \code{height - y + 1}.}
 }
 \value{
-A list with \code{spots} (the input table plus \code{he}), \code{preview}, and
+A list with \code{spots} (the input table plus the mean-centered \code{he}), \code{preview}, and
 \code{settings}. With ggplot2 and patchwork installed, the preview shows the
 original H&E image on the left and the mean-centered H&E feature on the
-right, using the paper's green-cream-pink scale. The returned \code{spots$he}
-retains the original intensity scale; fitting mean-centers these values.
+right, using the paper's green-cream-pink scale. The preview uses the
+returned \code{spots$he} values directly. \code{settings$feature_center} records the
+subtracted mean, and \code{settings$intensity_scale} describes the \verb{[0, 1]}
+intensity scale before centering.
 Extraction uses the original image resolution. The histology preview is
 limited to 2,000 pixels on its longest edge, keeping the original field
 of view and coordinate scale.
@@ -41,7 +44,8 @@ Patches at image edges use their available pixels; their IDs are recorded
 in settings.
 }
 \description{
-Calculates mean image intensity in a rectangular patch around each location.
+Calculates mean image intensity in a rectangular patch around each location,
+then subtracts the mean across the supplied locations.
 The returned spot table can be passed directly to \code{\link[=fit_morphoanova]{fit_morphoanova()}}.
 Coordinates used for extraction are one-based image pixels: x is the column
 and y is the row. Model coordinates in \code{spots$x} and \code{spots$y} are preserved.

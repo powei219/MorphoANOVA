@@ -1,6 +1,7 @@
 #' Extract one H&E feature at each spatial location
 #'
-#' Calculates mean image intensity in a rectangular patch around each location.
+#' Calculates mean image intensity in a rectangular patch around each location,
+#' then subtracts the mean across the supplied locations.
 #' The returned spot table can be passed directly to [fit_morphoanova()].
 #' Coordinates used for extraction are one-based image pixels: x is the column
 #' and y is the row. Model coordinates in `spots$x` and `spots$y` are preserved.
@@ -9,18 +10,21 @@
 #' columns and select them with `pixel_columns`.
 #'
 #' @param image PNG/JPEG filename or numeric height-by-width-by-channel RGB array.
-#'   Intensities may be in `[0, 1]` or `[0, 255]`; features use the `[0, 1]` scale.
+#'   Intensities may be in `[0, 1]` or `[0, 255]`; patch means use the `[0, 1]`
+#'   scale before centering.
 #' @param spots Data frame containing unique `spot_id`, model coordinates `x`,
 #'   `y`, and the image coordinate columns selected by `pixel_columns`.
 #' @param channel Image channel: `"rgb"` averages all three channels.
 #' @param patch_size Patch width and height in pixels, or one square-patch size.
 #' @param pixel_columns Names of the image x and y columns in `spots`.
 #' @param flip_y Reflect rounded image y coordinates using `height - y + 1`.
-#' @return A list with `spots` (the input table plus `he`), `preview`, and
+#' @return A list with `spots` (the input table plus the mean-centered `he`), `preview`, and
 #'   `settings`. With ggplot2 and patchwork installed, the preview shows the
 #'   original H&E image on the left and the mean-centered H&E feature on the
-#'   right, using the paper's green-cream-pink scale. The returned `spots$he`
-#'   retains the original intensity scale; fitting mean-centers these values.
+#'   right, using the paper's green-cream-pink scale. The preview uses the
+#'   returned `spots$he` values directly. `settings$feature_center` records the
+#'   subtracted mean, and `settings$intensity_scale` describes the `[0, 1]`
+#'   intensity scale before centering.
 #'   Extraction uses the original image resolution. The histology preview is
 #'   limited to 2,000 pixels on its longest edge, keeping the original field
 #'   of view and coordinate scale.
@@ -128,6 +132,8 @@ extract_he_feature <- function(image, spots, channel = c("rgb", "red", "green", 
       feature[i] <- mean(image[rows, columns, channels, drop = FALSE]) / intensity_scale
     }
   }
+  feature_center <- mean(feature)
+  feature <- feature - feature_center
   spots$spot_id <- ids
   spots$he <- feature
   preview <- NULL
@@ -149,7 +155,7 @@ extract_he_feature <- function(image, spots, channel = c("rgb", "red", "green", 
     # Plot mappings retain this environment; release the full image first.
     rm(image)
     mapped <- data.frame(pixel_x = x, pixel_y = height - y + 1,
-                         value = feature - mean(feature))
+                         value = feature)
     bound <- max(abs(mapped$value))
     frame <- ggplot2::coord_fixed(xlim = c(0.5, width + 0.5),
       ylim = c(0.5, height + 0.5), expand = FALSE)
@@ -173,7 +179,8 @@ extract_he_feature <- function(image, spots, channel = c("rgb", "red", "green", 
     image = source, width = width, height = height, channel = channel,
     patch_size = stats::setNames(patch_size, c("width", "height")),
     pixel_columns = pixel_columns, flip_y = flip_y, coordinate_origin = "one_based",
-    clipped_spot_ids = ids[clipped], intensity_scale = c(0, 1)))
+    clipped_spot_ids = ids[clipped], intensity_scale = c(0, 1),
+    feature_center = feature_center))
 }
 
 utils::globalVariables(c("pixel_x", "pixel_y", "value"))

@@ -229,7 +229,8 @@
 #' Fits four nested Gaussian spatial models with REML and summarizes sequential
 #' F tests, adjusted R-squared increments, and spatial component maps. Expression
 #' is used as supplied; normalize and log-transform it before calling this
-#' function. The selected H&E feature is mean-centered across locations.
+#' function. By default, the selected H&E feature is mean-centered across
+#' locations. Set \code{center = FALSE} to use the supplied feature unchanged.
 #'
 #' @param expression Numeric genes-by-locations matrix, including a sparse
 #'   \code{Matrix}, with unique row and column names.
@@ -249,6 +250,9 @@
 #'   named per-gene file paths; plotting functions read only the requested genes.
 #' @param resume Resume a matching run in \code{output_dir}. Changed inputs,
 #'   source code, model settings, or software versions require a new directory.
+#' @param center Mean-center the selected H&E feature across the locations in
+#'   this fit. The default is \code{TRUE}; \code{FALSE} uses the supplied values
+#'   unchanged, including features already centered by \code{extract_he_feature()}.
 #' @return A \code{morphoanova_fit} list containing four entries:
 #'   \code{statistics}, \code{spatial}, \code{status}, and \code{settings}.
 #'   \code{spatial[[gene]]} is an ordinary data frame with the already-computed
@@ -256,7 +260,9 @@
 #'   In disk mode, \code{spatial[[gene]]} is the saved file path. Read its
 #'   location-level table with \code{readRDS(fit$spatial[[gene]])$spatial}.
 #'   \code{settings} records the main model settings, centering,
-#'   package version, and numbers of genes and locations. File paths, model
+#'   package version, and numbers of genes and locations. Its \code{center}
+#'   entry records the centering option; \code{feature_center} is the subtracted
+#'   mean, or zero when \code{center = FALSE}. File paths, model
 #'   diagnostics, and full provenance are retained in an internal attribute.
 #'   \code{F21}, \code{F32}, and \code{F43} compare M2 versus M1, M3 versus M2,
 #'   and M4 versus M3, respectively. \code{p21}, \code{p32}, and \code{p43}
@@ -312,8 +318,9 @@
 #' }
 #' @export
 fit_morphoanova <- function(expression, spots, genes = NULL, feature = "he",
-                            k = 30, cores = 1, output_dir = NULL, resume = FALSE) {
-  input <- .prepare_fit_input(expression, spots, genes, feature, k, cores)
+                            k = 30, cores = 1, output_dir = NULL, resume = FALSE,
+                            center = TRUE) {
+  input <- .prepare_fit_input(expression, spots, genes, feature, k, cores, center)
   if (!is.logical(resume) || length(resume) != 1L || is.na(resume)) {
     stop("`resume` must be TRUE or FALSE.", call. = FALSE)
   }
@@ -325,12 +332,13 @@ fit_morphoanova <- function(expression, spots, genes = NULL, feature = "he",
     fun <- get(name, envir = environment(fit_morphoanova))
     list(formals = deparse(formals(fun)), body = deparse(body(fun)))
   })
-  settings <- list(feature = feature, feature_center = input$center, k = as.integer(k),
+  settings <- list(feature = feature, center = center, feature_center = input$center,
+                   k = as.integer(k),
                    family = "gaussian", spline = "tp", method = "REML", edf = "sum(model$edf)",
                    adjusted_r2_edf = "sum(model$edf)",
                    sequential_test = "mgcv::anova.gam(reduced, full, test = 'F')",
                    test_definition_version = "mgcv_anova_gam_F_v1",
-                   centering = "H&E mean across all locations in this tissue section",
+                   centering = if (center) "H&E mean across all locations in this tissue section" else "none",
                    models = c(M1 = "y ~ 1", M2 = "y ~ h", M3 = "y ~ s(x, y_coord, by = h)",
                               M4 = "y ~ s(x, y_coord, by = h) + s(x, y_coord)"),
                    version = tryCatch(as.character(utils::packageVersion("MorphoANOVA")), error = function(e) "development"),
@@ -397,7 +405,7 @@ fit_morphoanova <- function(expression, spots, genes = NULL, feature = "he",
   diagnostics <- lapply(results, function(gene_result) {
     gene_result[c("model_diagnostics", "diagnostics")]
   })
-  main_settings <- settings[c("feature", "feature_center", "k", "family", "spline",
+  main_settings <- settings[c("feature", "center", "feature_center", "k", "family", "spline",
                               "method", "version", "n_locations")]
   main_settings$n_genes <- length(input$genes)
   result <- structure(list(statistics = statistics, spatial = spatial,
