@@ -2,26 +2,28 @@
 % Please edit documentation in R/plots.R
 \name{plot_components}
 \alias{plot_components}
-\title{Plot a gene's fitted spatial components}
+\title{Plot fitted spatial components}
 \usage{
 plot_components(
   fit,
   gene = NULL,
-  type = c("components", "significance"),
+  type = c("components", "significance", "mechanism"),
   point_size = 0.8,
   alpha = 0.05,
   flip_y = FALSE,
   family = "Arial",
   shared_scale = FALSE,
-  significance_cap = 20
+  significance_cap = 20,
+  components = NULL
 )
 }
 \arguments{
 \item{fit}{A result from \code{\link[=fit_morphoanova]{fit_morphoanova()}}.}
 
-\item{gene}{Gene to display. May be omitted for a single-gene result.}
+\item{gene}{Gene or vector of genes to display. May be omitted for a
+single-gene result. Multiple genes produce median component maps.}
 
-\item{type}{\code{"components"} or \code{"significance"}.}
+\item{type}{\code{"components"}, \code{"significance"}, or \code{"mechanism"}.}
 
 \item{point_size}{Spatial point size.}
 
@@ -31,14 +33,26 @@ plot_components(
 
 \item{family}{Plot font family.}
 
-\item{shared_scale}{Use the same symmetric color range for all three
+\item{shared_scale}{Use the same symmetric color range for all selected
 component maps. Expression always has its own scale.}
 
 \item{significance_cap}{Maximum displayed \code{-log10(BH q)} in significance
 maps. The default is 20; the colorbar labels the upper endpoint \code{20+}.}
+
+\item{components}{Components to display, in panel order. For component maps,
+choose from \code{"expression"}, \code{"slide_wide_he"}, \code{"location_specific_he"},
+\code{"total_he"}, and \code{"spatial_beyond_he"}. The default is expression and the
+three separate components. For significance maps, choose \code{"total_he"}
+and/or \code{"spatial_beyond_he"}; both are shown by default. Mechanism maps
+require both components.}
 }
 \value{
-A patchwork plot, suitable for \code{ggplot2::ggsave()}.
+A patchwork plot, suitable for \code{ggplot2::ggsave()}. Its \code{values}
+attribute contains the spot IDs, coordinates, and values shown in each
+panel. For significance maps, the \verb{<component>_significance} columns hold
+the displayed negative log10 BH-adjusted p-values after thresholding and
+capping. Mechanism-map tables contain both adjusted p-value columns and
+the \code{mechanism} classification. Retrieve this table with \code{attr(plot, "values")}.
 }
 \description{
 The default four panels show expression, slide-wide H&E effect,
@@ -49,4 +63,10 @@ H&E equals zero at each location, using pointwise BH-adjusted p-values.
 Total H&E is \code{slide_wide_he + location_specific_he}. BH correction is across
 locations within each gene and component. Values above the display cap share
 its darkest blue; stored p-values and q-values are unchanged.
+When several genes are selected, component maps show their median at each
+location. Genes are matched by spot ID before taking medians. Pointwise
+significance and mechanism maps are available for a single gene. Mechanism
+maps classify locations as H&E only, beyond H&E only, both, or neither using
+the two pointwise BH-adjusted p-values and \code{alpha}, without a gene-level F
+gate. Locations with either adjusted p-value unavailable remain unclassified.
 }

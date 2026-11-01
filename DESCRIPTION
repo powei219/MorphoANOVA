@@ -2,7 +2,7 @@ Package: MorphoANOVA
 Type: Package
 Title: Histology and Gene Expression Decomposition in Spatial
         Transcriptomics
-Version: 0.1.9
+Version: 0.1.10
 Depends: R (>= 4.1.0)
 Authors@R: person("Po-Wei", "Chen", email = "ack7qw@virginia.edu", role = c("aut", "cre"))
 Description: Implements a sequential analysis of variance (ANOVA) framework using

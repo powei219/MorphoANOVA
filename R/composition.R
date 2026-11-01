@@ -20,8 +20,14 @@
 #'   of `spot_id`, or group IDs as matrix row names. Locations not listed in
 #'   `groups` are excluded.
 #' @param family Plot font family.
+#' @param summary Show individual genes (`"none"`), or the `"mean"` or
+#'   `"median"` of their signed Spearman correlations for each cell type and
+#'   component. Summaries use finite correlations only; `n_genes` reports
+#'   their number. They summarize gene-level correlations, not pooled spots.
 #' @return A ggplot. Its `data` table contains `gene`, `component`, `cell_type`,
 #'   `n` (number of finite pairs), and signed Spearman `rho`.
+#'   For a summary, `data` contains `n_genes` and the summarized `rho`;
+#'   `attr(plot, "correlations")` retains the individual-gene correlations.
 #' @details Proportions are used as supplied.
 #' @examples
 #' \dontrun{
@@ -30,13 +36,28 @@
 #' @export
 plot_composition <- function(fit, proportions, genes = NULL,
                              components = c("total_he", "spatial_beyond_he"),
-                             groups = NULL, family = "sans") {
+                             groups = NULL, family = "sans",
+                             summary = c("none", "mean", "median")) {
   .plot_dependencies("ggplot2")
+  summary <- match.arg(summary)
   correlations <- .component_correlations(fit, proportions, genes, components, groups)
   correlations$component <- factor(correlations$component, levels = components)
+  plotted <- correlations
+  if (summary != "none") {
+    rows <- list()
+    for (component in components) for (cell_type in unique(correlations$cell_type)) {
+      rho <- correlations$rho[correlations$component == component & correlations$cell_type == cell_type]
+      rho <- rho[is.finite(rho)]
+      rows[[length(rows) + 1L]] <- data.frame(gene = if (summary == "mean") "Mean across genes" else "Median across genes",
+        component = component, cell_type = cell_type, n_genes = length(rho),
+        rho = if (!length(rho)) NA_real_ else if (summary == "mean") mean(rho) else stats::median(rho))
+    }
+    plotted <- do.call(rbind, rows)
+    plotted$component <- factor(plotted$component, levels = components)
+  }
   labels <- c(expression = "Gene expression", total_he = "Total H&E effect",
               spatial_beyond_he = "Spatial variation beyond H&E")
-  ggplot2::ggplot(correlations, ggplot2::aes(x = cell_type, y = gene, fill = rho)) +
+  plot <- ggplot2::ggplot(plotted, ggplot2::aes(x = cell_type, y = gene, fill = rho)) +
     ggplot2::geom_tile() +
     ggplot2::facet_wrap(~ component, labeller = ggplot2::as_labeller(labels)) +
     ggplot2::scale_fill_gradient2(low = "#2166AC", mid = "white", high = "#B2182B",
@@ -44,6 +65,8 @@ plot_composition <- function(fit, proportions, genes = NULL,
     ggplot2::labs(x = NULL, y = NULL) +
     ggplot2::theme_minimal(base_family = family) +
     ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
+  attr(plot, "correlations") <- correlations
+  plot
 }
 
 .component_correlations <- function(fit, proportions, genes, components, groups) {

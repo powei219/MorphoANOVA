@@ -10,7 +10,8 @@ plot_composition(
   genes = NULL,
   components = c("total_he", "spatial_beyond_he"),
   groups = NULL,
-  family = "sans"
+  family = "sans",
+  summary = c("none", "mean", "median")
 )
 }
 \arguments{
@@ -33,10 +34,17 @@ of \code{spot_id}, or group IDs as matrix row names. Locations not listed in
 \code{groups} are excluded.}
 
 \item{family}{Plot font family.}
+
+\item{summary}{Show individual genes (\code{"none"}), or the \code{"mean"} or
+\code{"median"} of their signed Spearman correlations for each cell type and
+component. Summaries use finite correlations only; \code{n_genes} reports
+their number. They summarize gene-level correlations, not pooled spots.}
 }
 \value{
 A ggplot. Its \code{data} table contains \code{gene}, \code{component}, \code{cell_type},
 \code{n} (number of finite pairs), and signed Spearman \code{rho}.
+For a summary, \code{data} contains \code{n_genes} and the summarized \code{rho};
+\code{attr(plot, "correlations")} retains the individual-gene correlations.
 }
 \description{
 Examines how the total H&E-associated effect and additional spatial

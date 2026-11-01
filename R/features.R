@@ -5,7 +5,8 @@
 #' The returned spot table can be passed directly to [fit_morphoanova()].
 #' Coordinates used for extraction are one-based image pixels: x is the column
 #' and y is the row. Model coordinates in `spots$x` and `spots$y` are preserved.
-#' Use pixel coordinates aligned to the supplied image's scale and orientation.
+#' Use pixel coordinates aligned to the image's scale and orientation after
+#' any rotation selected with `rotate`.
 #' If model coordinates are in micrometers, retain separate image-coordinate
 #' columns and select them with `pixel_columns`.
 #'
@@ -17,14 +18,19 @@
 #' @param channel Image channel: `"rgb"` averages all three channels.
 #' @param patch_size Patch width and height in pixels, or one square-patch size.
 #' @param pixel_columns Names of the image x and y columns in `spots`.
-#' @param flip_y Reflect rounded image y coordinates using `height - y + 1`.
+#' @param flip_y Reflect rounded image y coordinates using `height - y + 1`,
+#'   with the height measured after rotation.
+#' @param rotate Rotate the image counterclockwise by 0, 90, 180 or 270 degrees
+#'   before matching pixel coordinates. The supplied pixel coordinates refer
+#'   to the rotated image; model coordinates are unchanged.
 #' @return A list with `spots` (the input table plus the mean-centered `he`), `preview`, and
 #'   `settings`. With ggplot2 and patchwork installed, the preview shows the
-#'   original H&E image on the left and the mean-centered H&E feature on the
+#'   aligned H&E image on the left and the mean-centered H&E feature on the
 #'   right, using the paper's green-cream-pink scale. The preview uses the
 #'   returned `spots$he` values directly. `settings$feature_center` records the
 #'   subtracted mean, and `settings$intensity_scale` describes the `[0, 1]`
-#'   intensity scale before centering.
+#'   intensity scale before centering. `settings$rotate`, `settings$width` and
+#'   `settings$height` record the rotation and resulting image dimensions.
 #'   Extraction uses the original image resolution. The histology preview is
 #'   limited to 2,000 pixels on its longest edge, keeping the original field
 #'   of view and coordinate scale.
@@ -38,7 +44,7 @@
 #' he$spots
 extract_he_feature <- function(image, spots, channel = c("rgb", "red", "green", "blue"),
                                patch_size, pixel_columns = c("x", "y"),
-                               flip_y = FALSE) {
+                               flip_y = FALSE, rotate = 0) {
   channel <- match.arg(channel)
   if (!is.data.frame(spots) || !nrow(spots) ||
       !all(c("spot_id", "x", "y") %in% names(spots))) {
@@ -64,6 +70,10 @@ extract_he_feature <- function(image, spots, channel = c("rgb", "red", "green", 
   patch_size <- rep(as.integer(patch_size), length.out = 2L)
   if (!is.logical(flip_y) || length(flip_y) != 1L || is.na(flip_y)) {
     stop("flip_y must be TRUE or FALSE.", call. = FALSE)
+  }
+  if (!is.numeric(rotate) || length(rotate) != 1L || is.na(rotate) ||
+      !rotate %in% c(0, 90, 180, 270)) {
+    stop("rotate must be 0, 90, 180 or 270 degrees counterclockwise.", call. = FALSE)
   }
 
   source <- if (is.character(image) && length(image) == 1L) image else "array"
@@ -97,6 +107,50 @@ extract_he_feature <- function(image, spots, channel = c("rgb", "red", "green", 
     }
     if (rgb_max > 1) intensity_scale <- 255
     rm(values)
+  }
+  if (rotate != 0) {
+    source_height <- dim(image)[1L]
+    source_width <- dim(image)[2L]
+    rotated_height <- if (rotate == 180) source_height else source_width
+    rotated_width <- if (rotate == 180) source_width else source_height
+    if (native) {
+      # Rotate packed row-major pixels in blocks without expanding them to RGB.
+      rotated <- integer(length(image))
+      for (start in seq(1, length(image), by = 1e6)) {
+        index <- seq.int(start, min(start + 1e6 - 1, length(image)))
+        row <- (index - 1) %/% rotated_width + 1
+        column <- (index - 1) %% rotated_width + 1
+        if (rotate == 90) {
+          source_row <- column
+          source_column <- source_width - row + 1
+        } else if (rotate == 180) {
+          source_row <- source_height - row + 1
+          source_column <- source_width - column + 1
+        } else {
+          source_row <- source_height - column + 1
+          source_column <- row
+        }
+        rotated[index] <- image[(source_row - 1) * as.double(source_width) + source_column]
+      }
+      rotated <- structure(rotated, dim = c(rotated_height, rotated_width),
+                           class = "nativeRaster")
+      rm(index, row, column, source_row, source_column)
+    } else {
+      rotated <- array(0, c(rotated_height, rotated_width, dim(image)[3L]))
+      for (j in seq_len(dim(image)[3L])) {
+        plane <- matrix(image[, , j], nrow = source_height, ncol = source_width)
+        if (rotate == 90) {
+          rotated[, , j] <- t(plane[, source_width:1, drop = FALSE])
+        } else if (rotate == 180) {
+          rotated[, , j] <- plane[source_height:1, source_width:1, drop = FALSE]
+        } else {
+          rotated[, , j] <- t(plane[source_height:1, , drop = FALSE])
+        }
+      }
+      rm(plane)
+    }
+    image <- rotated
+    rm(rotated)
   }
   height <- dim(image)[1L]
   width <- dim(image)[2L]
@@ -178,7 +232,8 @@ extract_he_feature <- function(image, spots, channel = c("rgb", "red", "green", 
   list(spots = spots, preview = preview, settings = list(
     image = source, width = width, height = height, channel = channel,
     patch_size = stats::setNames(patch_size, c("width", "height")),
-    pixel_columns = pixel_columns, flip_y = flip_y, coordinate_origin = "one_based",
+    pixel_columns = pixel_columns, flip_y = flip_y, rotate = rotate,
+    coordinate_origin = "one_based",
     clipped_spot_ids = ids[clipped], intensity_scale = c(0, 1),
     feature_center = feature_center))
 }

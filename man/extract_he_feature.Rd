@@ -10,7 +10,8 @@ extract_he_feature(
   channel = c("rgb", "red", "green", "blue"),
   patch_size,
   pixel_columns = c("x", "y"),
-  flip_y = FALSE
+  flip_y = FALSE,
+  rotate = 0
 )
 }
 \arguments{
@@ -27,16 +28,22 @@ scale before centering.}
 
 \item{pixel_columns}{Names of the image x and y columns in \code{spots}.}
 
-\item{flip_y}{Reflect rounded image y coordinates using \code{height - y + 1}.}
+\item{flip_y}{Reflect rounded image y coordinates using \code{height - y + 1},
+with the height measured after rotation.}
+
+\item{rotate}{Rotate the image counterclockwise by 0, 90, 180 or 270 degrees
+before matching pixel coordinates. The supplied pixel coordinates refer
+to the rotated image; model coordinates are unchanged.}
 }
 \value{
 A list with \code{spots} (the input table plus the mean-centered \code{he}), \code{preview}, and
 \code{settings}. With ggplot2 and patchwork installed, the preview shows the
-original H&E image on the left and the mean-centered H&E feature on the
+aligned H&E image on the left and the mean-centered H&E feature on the
 right, using the paper's green-cream-pink scale. The preview uses the
 returned \code{spots$he} values directly. \code{settings$feature_center} records the
 subtracted mean, and \code{settings$intensity_scale} describes the \verb{[0, 1]}
-intensity scale before centering.
+intensity scale before centering. \code{settings$rotate}, \code{settings$width} and
+\code{settings$height} record the rotation and resulting image dimensions.
 Extraction uses the original image resolution. The histology preview is
 limited to 2,000 pixels on its longest edge, keeping the original field
 of view and coordinate scale.
@@ -49,7 +56,8 @@ then subtracts the mean across the supplied locations.
 The returned spot table can be passed directly to \code{\link[=fit_morphoanova]{fit_morphoanova()}}.
 Coordinates used for extraction are one-based image pixels: x is the column
 and y is the row. Model coordinates in \code{spots$x} and \code{spots$y} are preserved.
-Use pixel coordinates aligned to the supplied image's scale and orientation.
+Use pixel coordinates aligned to the image's scale and orientation after
+any rotation selected with \code{rotate}.
 If model coordinates are in micrometers, retain separate image-coordinate
 columns and select them with \code{pixel_columns}.
 }
