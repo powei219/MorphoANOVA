@@ -301,6 +301,4 @@ greater than 2.
 
 Tissue-category counts are from Jiang et al., [iIMPACT, Zenodo version
 v1](https://doi.org/10.5281/zenodo.11117768) (2024-05-06), also under CC
-BY 4.0. Counts were matched by spot ID and divided by their row totals
-to obtain proportions for lymphocyte, macrophage, tumor, stroma, blood
-and necrosis.
+BY 4.0.
