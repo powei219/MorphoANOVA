@@ -55,3 +55,20 @@ The executable R Markdown source is [available here](tutorial/MorphoANOVA.Rmd).
 
 MorphoANOVA is distributed under GPL-3.0-or-later. The ovarian
 expression and histology data are from 10x Genomics under CC BY 4.0.
+
+
+## Citation
+
+If you use **MorphoANOVA** in your research, please cite:
+
+> Chen, P.-W., Yan, G., Yu, S., & Li, J. J. (2026). **MorphoANOVA: Dissecting Histology-Gene Expression Relationships in Spatial Transcriptomics.** *bioRxiv*. DOI: 10.64898/2026.11.05.764699
+
+```bibtex
+@article{chen2026morphoanova,
+  title   = {MorphoANOVA: Dissecting Histology-Gene Expression Relationships in Spatial Transcriptomics},
+  author  = {Chen, P.-W. and Yan, G. and Yu, S. and Li, J. J.},
+  journal = {bioRxiv},
+  year    = {2026},
+  doi     = {10.64898/2026.11.05.764699}
+}
+```
